@@ -25,9 +25,10 @@ class Planet(db.Model, SerializerMixin):
     distance_from_earth = db.Column(db.Integer)
     nearest_star = db.Column(db.String)
 
-    # Add relationship
+    missions = db.relationship('Mission', back_populates='planet', cascade='all, delete-orphan')
+    scientists = association_proxy('missions', 'scientist', creator=lambda scientist_obj: Mission(scientist=scientist_obj))
 
-    # Add serialization rules
+    serialize_rules = ('-missions', '-scientists.missions')
 
 
 class Scientist(db.Model, SerializerMixin):
@@ -37,11 +38,16 @@ class Scientist(db.Model, SerializerMixin):
     name = db.Column(db.String)
     field_of_study = db.Column(db.String)
 
-    # Add relationship
+    missions = db.relationship('Mission', back_populates='scientist', cascade='all, delete-orphan')
+    planets = association_proxy('missions', 'planet', creator=lambda planet_obj: Mission(planet=planet_obj))
 
-    # Add serialization rules
+    serialize_rules = ('-planets.missions',)
 
-    # Add validation
+    @validates('name', 'field_of_study')
+    def validate_name(self, key, value):
+        if not value:
+            raise ValueError(f'{key} cannot be empty')
+        return value
 
 
 class Mission(db.Model, SerializerMixin):
@@ -49,12 +55,18 @@ class Mission(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
+    scientist_id = db.Column(db.Integer, db.ForeignKey('scientists.id'))
+    planet_id = db.Column(db.Integer, db.ForeignKey('planets.id'))
 
-    # Add relationships
+    planet = db.relationship('Planet', back_populates='missions')
+    scientist = db.relationship('Scientist', back_populates='missions')
 
-    # Add serialization rules
+    serialize_rules = ('-planet.missions', '-scientist.missions')
 
-    # Add validation
+    @validates('name', 'scientist_id', 'planet_id')
+    def validate_name(self, key, value):
+        if not value:
+            raise ValueError(f'{key} cannot be empty')
+        return value
 
 
-# add any models you may need.
